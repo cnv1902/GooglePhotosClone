@@ -1,8 +1,33 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { STORAGE_BASE_URL } from "../utils/config";
 
 const Navbar = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    logout();
+    navigate('/sign-in');
+  };
+
+  const getAvatarUrl = () => {
+    if (user?.avatar) {
+      return `${STORAGE_BASE_URL}/storage/${user.avatar}`;
+    }
+    return '/src/assets/images/user/1.jpg';
+  };
+
+  const getInitials = () => {
+    if (!user?.name) return 'U';
+    const names = user.name.split(' ');
+    if (names.length >= 2) {
+      return (names[0][0] + names[names.length - 1][0]).toUpperCase();
+    }
+    return user.name[0].toUpperCase();
+  };
   
   return (
     <div className="iq-top-navbar">
@@ -10,7 +35,7 @@ const Navbar = () => {
         <nav className="navbar navbar-expand-lg navbar-light p-0">
           <div className="iq-navbar-logo d-flex align-items-center justify-content-between">
             <i className="ri-menu-line wrapper-menu"></i>
-            <Link href="/index" className="header-logo">
+            <Link to="/" className="header-logo">
               <img src="/src/assets/images/logo.png" className="img-fluid rounded-normal light-logo" alt="logo" />
               <img src="/src/assets/images/logo-white.png" className="img-fluid rounded-normal darkmode-logo" alt="logo" />
             </Link>
@@ -31,50 +56,6 @@ const Navbar = () => {
                     </a>
                     <span className="caret"></span>
                   </label>
-                  <ul className="dropdown-menu">
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-pdf bg-info"></i>PDF
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-alt bg-primary"></i>Tài liệu
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-excel bg-success"></i>Bảng tính
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-powerpoint bg-danger"></i>Trình chiếu
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-image bg-warning"></i>Ảnh & Hình ảnh
-                        </div>
-                      </a>
-                    </li>
-                    <li>
-                      <a href="#">
-                        <div className="item">
-                          <i className="far fa-file-video bg-info"></i>Video
-                        </div>
-                      </a>
-                    </li>
-                  </ul>
                 </div>
               </div>
             </form>
@@ -115,70 +96,6 @@ const Navbar = () => {
                     </form>
                   </div>
                 </li>
-                <li className="nav-item nav-icon dropdown">
-                  <a
-                    href="#"
-                    className="search-toggle dropdown-toggle"
-                    id="dropdownMenuButton01"
-                    data-toggle="dropdown"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                  >
-                    <i className="ri-question-line"></i>
-                  </a>
-                  <div className="iq-sub-dropdown dropdown-menu" aria-labelledby="dropdownMenuButton01">
-                    <div className="card shadow-none m-0">
-                      <div className="card-body p-0">
-                        <div className="p-3">
-                          <a href="#" className="iq-sub-card pt-0">
-                            <i className="ri-questionnaire-line"></i>Trợ giúp
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-recycle-line"></i>Hướng dẫn
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-refresh-line"></i>Cập nhật
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-service-line"></i>Điều khoản và Chính sách
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-feedback-line"></i>Gửi phản hồi
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
-                <li className="nav-item nav-icon dropdown">
-                  <a
-                    href="#"
-                    className="search-toggle dropdown-toggle"
-                    id="dropdownMenuButton02"
-                    data-toggle="dropdown"
-                    aria-haspopup="true"
-                    aria-expanded="false"
-                  >
-                    <i className="ri-settings-3-line"></i>
-                  </a>
-                  <div className="iq-sub-dropdown dropdown-menu" aria-labelledby="dropdownMenuButton02">
-                    <div className="card shadow-none m-0">
-                      <div className="card-body p-0">
-                        <div className="p-3">
-                          <a href="#" className="iq-sub-card pt-0">
-                            <i className="ri-settings-3-line"></i> Cài đặt
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-hard-drive-line"></i> Tải ứng dụng cho máy tính
-                          </a>
-                          <a href="#" className="iq-sub-card">
-                            <i className="ri-keyboard-line"></i> Phím tắt
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </li>
                 <li className="nav-item nav-icon dropdown caption-content">
                   <a
                     href="#"
@@ -191,7 +108,16 @@ const Navbar = () => {
                     aria-haspopup="true"
                     aria-expanded={isProfileOpen}
                   >
-                    <div className="caption bg-primary line-height">P</div>
+                    {user?.avatar ? (
+                      <img 
+                        src={getAvatarUrl()} 
+                        alt="avatar" 
+                        className="rounded-circle"
+                        style={{ width: '40px', height: '40px', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div className="caption bg-primary line-height">{getInitials()}</div>
+                    )}
                   </a>
                   <div 
                     className={`iq-sub-dropdown dropdown-menu ${isProfileOpen ? 'show' : ''}`}
@@ -210,19 +136,29 @@ const Navbar = () => {
                         <div className="profile-header">
                           <div className="cover-container text-center mb-3">
                             <div className="profile-img-edit position-relative">
-                              <img 
-                                src="/src/assets/images/user/1.jpg" 
-                                alt="profile-bg" 
-                                className="rounded-circle avatar-80"
-                              />
+                              {user?.avatar ? (
+                                <img 
+                                  src={getAvatarUrl()} 
+                                  alt="profile-bg" 
+                                  className="rounded-circle avatar-80"
+                                />
+                              ) : (
+                                <div className="rounded-circle avatar-80 bg-primary d-flex align-items-center justify-content-center text-white" style={{ fontSize: '2rem' }}>
+                                  {getInitials()}
+                                </div>
+                              )}
                             </div>
                             <div className="profile-detail mt-3">
-                              <h5 className="mb-1">Penny Tech</h5>
-                              <p className="mb-0">penny@example.com</p>
+                              <h5 className="mb-1">{user?.name || 'Người dùng'}</h5>
+                              <p className="mb-0">{user?.email || ''}</p>
                             </div>
                           </div>
                           <div className="profile-details border-top pt-3">
-                            <Link to="/profile-edit" className="iq-sub-card iq-bg-primary-hover mb-2">
+                            <Link 
+                              to="/profile-edit" 
+                              className="iq-sub-card iq-bg-primary-hover mb-2"
+                              onClick={() => setIsProfileOpen(false)}
+                            >
                               <div className="d-flex align-items-center">
                                 <div className="rounded-circle iq-card-icon-small mr-3">
                                   <i className="ri-file-user-line"></i>
@@ -233,7 +169,14 @@ const Navbar = () => {
                                 </div>
                               </div>
                             </Link>
-                            <Link to="/sign-in" className="iq-sub-card iq-bg-danger-hover">
+                            <a 
+                              href="#" 
+                              className="iq-sub-card iq-bg-danger-hover"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleLogout();
+                              }}
+                            >
                               <div className="d-flex align-items-center">
                                 <div className="rounded-circle iq-card-icon-small mr-3">
                                   <i className="ri-logout-box-line"></i>
@@ -243,7 +186,7 @@ const Navbar = () => {
                                   <p className="mb-0 font-size-12">Thoát khỏi tài khoản</p>
                                 </div>
                               </div>
-                            </Link>
+                            </a>
                           </div>
                         </div>
                       </div>

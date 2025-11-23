@@ -76,7 +76,9 @@ const MainLayout = ({ children }) => {
       <div className="wrapper">
         <Sidebar />
         <Navbar />
-        {children}
+        <div className="content-page">
+          {children}
+        </div>
       </div>
       <footer className="iq-footer">
         <div className="container-fluid">

@@ -5,7 +5,7 @@ import Dashboard from "./Dashboard";
 
 const Index = () => {
   useDocumentTitle("Trang chủ - Google Photos Clone");
-  
+
   return (
     <MainLayout>
       <Dashboard />

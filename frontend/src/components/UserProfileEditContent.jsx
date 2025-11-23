@@ -1,33 +1,98 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
+import { STORAGE_BASE_URL } from "../utils/config";
 
 const UserProfileEditContent = () => {
+  const { user, updateUser } = useAuth();
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    date_of_birth: "",
+    gender: "",
+    bio: "",
+  });
+  const [avatar, setAvatar] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        date_of_birth: user.date_of_birth || "",
+        gender: user.gender || "",
+        bio: user.bio || "",
+      });
+      if (user.avatar) {
+        setAvatarPreview(`${STORAGE_BASE_URL}/storage/${user.avatar}`);
+      }
+    }
+  }, [user]);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatar(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      const profileData = {
+        name: formData.name,
+        date_of_birth: formData.date_of_birth || null,
+        gender: formData.gender || null,
+        bio: formData.bio || null,
+      };
+      
+      if (avatar) {
+        profileData.avatar = avatar;
+      }
+
+      const updatedUser = await api.updateProfile(profileData);
+      updateUser(updatedUser);
+      setSuccess("Cập nhật hồ sơ thành công!");
+    } catch (err) {
+      setError(err.message || "Cập nhật hồ sơ thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAvatarUrl = () => {
+    if (avatarPreview) return avatarPreview;
+    if (user?.avatar) {
+      return `${STORAGE_BASE_URL}/storage/${user.avatar}`;
+    }
+    return "/src/assets/images/user/11.png";
+  };
+
   return (
-    <div className="content-page">
-      <div className="container-fluid">
+    <div className="container-fluid">
         <div className="row">
           <div className="col-lg-12">
             <div className="card">
               <div className="card-body p-0">
                 <div className="iq-edit-list usr-edit">
                   <ul className="iq-edit-profile d-flex nav nav-pills">
-                    <li className="col-md-3 p-0">
+                    <li className="col-md-12 p-0">
                       <a className="nav-link active" data-toggle="pill" href="#personal-information">
                         Thông tin cá nhân
-                      </a>
-                    </li>
-                    <li className="col-md-3 p-0">
-                      <a className="nav-link" data-toggle="pill" href="#chang-pwd">
-                        Đổi mật khẩu
-                      </a>
-                    </li>
-                    <li className="col-md-3 p-0">
-                      <a className="nav-link" data-toggle="pill" href="#emailandsms">
-                        Email và SMS
-                      </a>
-                    </li>
-                    <li className="col-md-3 p-0">
-                      <a className="nav-link" data-toggle="pill" href="#manage-contact">
-                        Quản lý liên hệ
                       </a>
                     </li>
                   </ul>
@@ -46,19 +111,40 @@ const UserProfileEditContent = () => {
                       </div>
                     </div>
                     <div className="card-body">
-                      <form>
+                      {error && (
+                        <div className="alert alert-danger" role="alert">
+                          {error}
+                        </div>
+                      )}
+                      {success && (
+                        <div className="alert alert-success" role="alert">
+                          {success}
+                        </div>
+                      )}
+                      <form onSubmit={handleSubmit}>
                         <div className="form-group row align-items-center">
                           <div className="col-md-12">
                             <div className="profile-img-edit">
                               <div className="crm-profile-img-edit">
                                 <img
                                   className="crm-profile-pic rounded-circle avatar-100"
-                                  src="/src/assets/images/user/11.png"
+                                  src={getAvatarUrl()}
                                   alt="profile-pic"
                                 />
                                 <div className="crm-p-image bg-primary">
                                   <i className="las la-pen upload-button"></i>
-                                  <input className="file-upload" type="file" accept="image/*" />
+                                  <input
+                                    ref={fileInputRef}
+                                    className="file-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleAvatarChange}
+                                    style={{ display: "none" }}
+                                  />
+                                  <div
+                                    onClick={() => fileInputRef.current?.click()}
+                                    style={{ cursor: "pointer" }}
+                                  ></div>
                                 </div>
                               </div>
                             </div>
@@ -66,251 +152,113 @@ const UserProfileEditContent = () => {
                         </div>
                         <div className="row align-items-center">
                           <div className="form-group col-sm-6">
-                            <label htmlFor="fname">Họ:</label>
-                            <input type="text" className="form-control" id="fname" defaultValue="Barry" />
+                            <label htmlFor="name">Tên:</label>
+                            <input
+                              type="text"
+                              className="form-control"
+                              id="name"
+                              value={formData.name}
+                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                              required
+                            />
                           </div>
                           <div className="form-group col-sm-6">
-                            <label htmlFor="lname">Tên:</label>
-                            <input type="text" className="form-control" id="lname" defaultValue="Tech" />
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label htmlFor="uname">Tên người dùng:</label>
-                            <input type="text" className="form-control" id="uname" defaultValue="Barry@01" />
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label htmlFor="cname">Thành phố:</label>
-                            <input type="text" className="form-control" id="cname" defaultValue="Atlanta" />
+                            <label htmlFor="email">Email:</label>
+                            <input
+                              type="email"
+                              className="form-control"
+                              id="email"
+                              value={formData.email}
+                              disabled
+                            />
                           </div>
                           <div className="form-group col-sm-6">
                             <label className="d-block">Giới tính:</label>
                             <div className="custom-control custom-radio custom-control-inline">
                               <input
                                 type="radio"
-                                id="customRadio6"
-                                name="customRadio1"
+                                id="gender_male"
+                                name="gender"
                                 className="custom-control-input"
-                                defaultChecked
+                                value="male"
+                                checked={formData.gender === "male"}
+                                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                               />
-                              <label className="custom-control-label" htmlFor="customRadio6">
+                              <label className="custom-control-label" htmlFor="gender_male">
                                 Nam
                               </label>
                             </div>
                             <div className="custom-control custom-radio custom-control-inline">
-                              <input type="radio" id="customRadio7" name="customRadio1" className="custom-control-input" />
-                              <label className="custom-control-label" htmlFor="customRadio7">
+                              <input
+                                type="radio"
+                                id="gender_female"
+                                name="gender"
+                                className="custom-control-input"
+                                value="female"
+                                checked={formData.gender === "female"}
+                                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                              />
+                              <label className="custom-control-label" htmlFor="gender_female">
                                 Nữ
+                              </label>
+                            </div>
+                            <div className="custom-control custom-radio custom-control-inline">
+                              <input
+                                type="radio"
+                                id="gender_other"
+                                name="gender"
+                                className="custom-control-input"
+                                value="other"
+                                checked={formData.gender === "other"}
+                                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                              />
+                              <label className="custom-control-label" htmlFor="gender_other">
+                                Khác
                               </label>
                             </div>
                           </div>
                           <div className="form-group col-sm-6">
                             <label htmlFor="dob">Ngày sinh:</label>
-                            <input className="form-control" id="dob" defaultValue="1984-01-24" />
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label>Tình trạng hôn nhân:</label>
-                            <select className="form-control" id="exampleFormControlSelect1">
-                              <option>Độc thân</option>
-                              <option>Đã kết hôn</option>
-                              <option>Góa</option>
-                              <option>Đã ly hôn</option>
-                              <option>Ly thân</option>
-                            </select>
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label>Độ tuổi:</label>
-                            <select className="form-control" id="exampleFormControlSelect2">
-                              <option>12-18</option>
-                              <option>19-32</option>
-                              <option>33-45</option>
-                              <option>46-62</option>
-                              <option>63 &gt; </option>
-                            </select>
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label>Quốc gia:</label>
-                            <select className="form-control" id="exampleFormControlSelect3">
-                              <option>Canada</option>
-                              <option>Noida</option>
-                              <option>USA</option>
-                              <option>India</option>
-                              <option>Africa</option>
-                            </select>
-                          </div>
-                          <div className="form-group col-sm-6">
-                            <label>Tỉnh/Bang:</label>
-                            <select className="form-control" id="exampleFormControlSelect4">
-                              <option>California</option>
-                              <option>Florida</option>
-                              <option>Georgia</option>
-                              <option>Connecticut</option>
-                              <option>Louisiana</option>
-                            </select>
+                            <input
+                              type="date"
+                              className="form-control"
+                              id="dob"
+                              value={formData.date_of_birth}
+                              onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                            />
                           </div>
                           <div className="form-group col-sm-12">
-                            <label>Địa chỉ:</label>
-                            <textarea className="form-control" name="address" rows="5" style={{ lineHeight: "22px" }} defaultValue={`37 Cardinal Lane
-Petersburg, VA 23803
-United States of America
-Zip Code: 85001`}>
-                            </textarea>
+                            <label htmlFor="bio">Tiểu sử:</label>
+                            <textarea
+                              className="form-control"
+                              id="bio"
+                              rows="4"
+                              value={formData.bio}
+                              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                              placeholder="Nhập tiểu sử của bạn..."
+                            />
                           </div>
                         </div>
-                        <button type="submit" className="btn btn-primary mr-2">
-                          Lưu
+                        <button type="submit" className="btn btn-primary mr-2" disabled={loading}>
+                          {loading ? "Đang lưu..." : "Lưu"}
                         </button>
-                        <button type="reset" className="btn iq-bg-danger">
-                          Hủy
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-                <div className="tab-pane fade" id="chang-pwd" role="tabpanel">
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between">
-                      <div className="iq-header-title">
-                        <h4 className="card-title">Đổi mật khẩu</h4>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <form>
-                        <div className="form-group">
-                          <label htmlFor="cpass">Mật khẩu hiện tại:</label>
-                          <a href="#" className="float-right">
-                            Quên mật khẩu
-                          </a>
-                          <input type="Password" className="form-control" id="cpass" defaultValue="" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="npass">Mật khẩu mới:</label>
-                          <input type="Password" className="form-control" id="npass" defaultValue="" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="vpass">Xác nhận mật khẩu:</label>
-                          <input type="Password" className="form-control" id="vpass" defaultValue="" />
-                        </div>
-                        <button type="submit" className="btn btn-primary mr-2">
-                          Lưu
-                        </button>
-                        <button type="reset" className="btn iq-bg-danger">
-                          Hủy
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-                <div className="tab-pane fade" id="emailandsms" role="tabpanel">
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between">
-                      <div className="iq-header-title">
-                        <h4 className="card-title">Email và SMS</h4>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <form>
-                        <div className="form-group row align-items-center">
-                          <label className="col-md-3" htmlFor="emailnotification">
-                            Thông báo Email:
-                          </label>
-                          <div className="col-md-9 custom-control custom-switch">
-                            <input type="checkbox" className="custom-control-input" id="emailnotification" defaultChecked />
-                            <label className="custom-control-label" htmlFor="emailnotification"></label>
-                          </div>
-                        </div>
-                        <div className="form-group row align-items-center">
-                          <label className="col-md-3" htmlFor="smsnotification">
-                            Thông báo SMS:
-                          </label>
-                          <div className="col-md-9 custom-control custom-switch">
-                            <input type="checkbox" className="custom-control-input" id="smsnotification" defaultChecked />
-                            <label className="custom-control-label" htmlFor="smsnotification"></label>
-                          </div>
-                        </div>
-                        <div className="form-group row align-items-center">
-                          <label className="col-md-3" htmlFor="npass">
-                            Khi nào gửi Email
-                          </label>
-                          <div className="col-md-9">
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email01" />
-                              <label className="custom-control-label" htmlFor="email01">
-                                Bạn có thông báo mới.
-                              </label>
-                            </div>
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email02" />
-                              <label className="custom-control-label" htmlFor="email02">
-                                Bạn nhận được tin nhắn trực tiếp
-                              </label>
-                            </div>
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email03" defaultChecked />
-                              <label className="custom-control-label" htmlFor="email03">
-                                Ai đó thêm bạn làm kết nối
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="form-group row align-items-center">
-                          <label className="col-md-3" htmlFor="npass">
-                            Khi nào gửi Email quan trọng
-                          </label>
-                          <div className="col-md-9">
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email04" />
-                              <label className="custom-control-label" htmlFor="email04">
-                                Khi có đơn hàng mới.
-                              </label>
-                            </div>
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email05" />
-                              <label className="custom-control-label" htmlFor="email05">
-                                Phê duyệt thành viên mới
-                              </label>
-                            </div>
-                            <div className="custom-control custom-checkbox">
-                              <input type="checkbox" className="custom-control-input" id="email06" defaultChecked />
-                              <label className="custom-control-label" htmlFor="email06">
-                                Đăng ký thành viên
-                              </label>
-                            </div>
-                          </div>
-                        </div>
-                        <button type="submit" className="btn btn-primary mr-2">
-                          Lưu
-                        </button>
-                        <button type="reset" className="btn iq-bg-danger">
-                          Hủy
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-                <div className="tab-pane fade" id="manage-contact" role="tabpanel">
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between">
-                      <div className="iq-header-title">
-                        <h4 className="card-title">Quản lý liên hệ</h4>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      <form>
-                        <div className="form-group">
-                          <label htmlFor="cno">Số điện thoại:</label>
-                          <input type="text" className="form-control" id="cno" defaultValue="001 2536 123 458" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="email">Email:</label>
-                          <input type="text" className="form-control" id="email" defaultValue="Barryjone@demo.com" />
-                        </div>
-                        <div className="form-group">
-                          <label htmlFor="url">Website:</label>
-                          <input type="text" className="form-control" id="url" defaultValue="https://getbootstrap.com" />
-                        </div>
-                        <button type="submit" className="btn btn-primary mr-2">
-                          Lưu
-                        </button>
-                        <button type="reset" className="btn iq-bg-danger">
+                        <button
+                          type="reset"
+                          className="btn iq-bg-danger"
+                          onClick={() => {
+                            if (user) {
+                              setFormData({
+                                name: user.name || "",
+                                email: user.email || "",
+                                date_of_birth: user.date_of_birth || "",
+                                gender: user.gender || "",
+                                bio: user.bio || "",
+                              });
+                            }
+                            setAvatar(null);
+                            setAvatarPreview(null);
+                          }}
+                        >
                           Hủy
                         </button>
                       </form>
@@ -322,7 +270,6 @@ Zip Code: 85001`}>
           </div>
         </div>
       </div>
-    </div>
   );
 };
 

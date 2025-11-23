@@ -1,7 +1,28 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 const Sidebar = () => {
+  const location = useLocation();
+  const { user } = useAuth();
+  
+  const isActive = (path) => {
+    return location.pathname === path ? 'active' : '';
+  };
+
+  const getStoragePercentage = () => {
+    if (!user) return 0;
+    return Math.round((user.storage_used / user.storage_limit) * 100);
+  };
+
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
   return (
     <div className="iq-sidebar sidebar-default">
       <div className="iq-sidebar-logo d-flex align-items-center justify-content-between">
@@ -14,205 +35,79 @@ const Sidebar = () => {
         </div>
       </div>
       <div className="data-scrollbar" data-scroll="1">
-        <div className="new-create select-dropdown input-prepend input-append">
-          <div className="btn-group">
-            <div data-toggle="dropdown">
-              <div className="search-query selet-caption">
-                <i className="las la-plus pr-2"></i>Tạo mới
-              </div>
-              <span className="search-replace"></span>
-              <span className="caret"></span>
-            </div>
-            <ul className="dropdown-menu">
-              <li>
-                <div className="item">
-                  <i className="ri-folder-add-line pr-3"></i>Thư mục mới
-                </div>
-              </li>
-              <li>
-                <div className="item">
-                  <i className="ri-file-upload-line pr-3"></i>Tải lên tệp
-                </div>
-              </li>
-              <li>
-                <div className="item">
-                  <i className="ri-folder-upload-line pr-3"></i>Tải lên thư mục
-                </div>
-              </li>
-            </ul>
-          </div>
-        </div>
         <nav className="iq-sidebar-menu">
           <ul id="iq-sidebar-toggle" className="iq-menu">
-            <li className="active">
-                <Link to="/">
-                    <i className="las la-home iq-arrow-left"></i>
-                    <span>Bảng điều khiển</span>
-                </Link>
-                <ul id="dashboard" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+            <li className={isActive('/')}>
+              <Link to="/">
+                <i className="las la-home iq-arrow-left"></i>
+                <span>Bảng điều khiển</span>
+              </Link>
             </li>
-            <li className="">
-                <Link to="/user-list">
-                    <i className="las la-list-alt iq-arrow-left"></i>
-                    <span>Danh sách người dùng</span>
-                </Link>
-                <ul id="user-list" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+            <li className={isActive('/photos')}>
+              <Link to="/photos">
+                <i className="las la-images iq-arrow-left"></i>
+                <span>Ảnh của tôi</span>
+              </Link>
             </li>
-            <li className="">
-              <a href="#mydrive" className="collapsed" data-toggle="collapse" aria-expanded="false">
-                <i className="las la-hdd"></i>
-                <span>Ổ đĩa của tôi</span>
-                <i className="las la-angle-right iq-arrow-right arrow-active"></i>
-                <i className="las la-angle-down iq-arrow-right arrow-hover"></i>
-              </a>
-              <ul id="mydrive" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle">
-                <li className="">
-                  <a href="../backend/page-alexa.html">
-                    <i className="lab la-blogger-b"></i>
-                    <span>Alexa Workshop</span>
-                  </a>
-                </li>
-                <li className="">
-                  <a href="../backend/page-android.html">
-                    <i className="las la-share-alt"></i>
-                    <span>Android</span>
-                  </a>
-                </li>
-                <li className="">
-                  <a href="../backend/page-brightspot.html">
-                    <i className="las la-icons"></i>
-                    <span>Brightspot</span>
-                  </a>
-                </li>
-                <li className="">
-                  <a href="../backend/page-ionic.html">
-                    <i className="las la-icons"></i>
-                    <span>Ionic Chat App</span>
-                  </a>
-                </li>
-              </ul>
+            <li className={isActive('/albums')}>
+              <Link to="/albums">
+                <i className="las la-folder iq-arrow-left"></i>
+                <span>Album</span>
+              </Link>
             </li>
-            <li className="">
-              <a href="../backend/page-files.html" className="">
-                <i className="lar la-file-alt iq-arrow-left"></i>
-                <span>Tệp tin</span>
-              </a>
-              <ul id="page-files" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+            <li className={isActive('/shared')}>
+              <Link to="/shared">
+                <i className="las la-share-alt iq-arrow-left"></i>
+                <span>Đã chia sẻ</span>
+              </Link>
             </li>
-            <li className="">
-              <a href="../backend/page-folders.html" className="">
-                <i className="las la-stopwatch iq-arrow-left"></i>
-                <span>Gần đây</span>
-              </a>
-              <ul id="page-folders" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+            <li className={isActive('/friends')}>
+              <Link to="/friends">
+                <i className="las la-user-friends iq-arrow-left"></i>
+                <span>Bạn bè</span>
+              </Link>
             </li>
-            <li className="">
-              <a href="../backend/page-favourite.html" className="">
-                <i className="lar la-star"></i>
+            <li className={isActive('/favorites')}>
+              <Link to="/favorites">
+                <i className="lar la-star iq-arrow-left"></i>
                 <span>Yêu thích</span>
-              </a>
-              <ul id="page-fevourite" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+              </Link>
             </li>
-            <li className="">
-              <a href="../backend/page-delete.html" className="">
+            <li className={isActive('/trash')}>
+              <Link to="/trash">
                 <i className="las la-trash-alt iq-arrow-left"></i>
                 <span>Thùng rác</span>
-              </a>
-              <ul id="page-delete" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle"></ul>
+              </Link>
             </li>
-            <li className="">
-              <a href="#otherpage" className="collapsed" data-toggle="collapse" aria-expanded="false">
-                <i className="lab la-wpforms iq-arrow-left"></i>
-                <span>Trang khác</span>
-                <i className="las la-angle-right iq-arrow-right arrow-active"></i>
-                <i className="las la-angle-down iq-arrow-right arrow-hover"></i>
-              </a>
-              <ul id="otherpage" className="iq-submenu collapse" data-parent="#iq-sidebar-toggle">
-                <li className="">
-                  <a href="#user" className="collapsed" data-toggle="collapse" aria-expanded="false">
-                    <i className="las la-user-cog"></i>
-                    <span>Thông tin người dùng</span>
-                    <i className="las la-angle-right iq-arrow-right arrow-active"></i>
-                    <i className="las la-angle-down iq-arrow-right arrow-hover"></i>
-                  </a>
-                  <ul id="user" className="iq-submenu collapse" data-parent="#otherpage">
-                    <li className="">
-                      <a href="../app/user-profile.html">
-                        <i className="las la-id-card"></i>
-                        <span>Hồ sơ người dùng</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../app/user-add.html">
-                        <i className="las la-user-plus"></i>
-                        <span>Thêm người dùng</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../app/user-list.html">
-                        <i className="las la-list-alt"></i>
-                        <span>Danh sách người dùng</span>
-                      </a>
-                    </li>
-                  </ul>
-                </li>
-                <li className="">
-                  <a href="#auth" className="collapsed" data-toggle="collapse" aria-expanded="false">
-                    <i className="las la-torah iq-arrow-left"></i>
-                    <span>Xác thực</span>
-                    <i className="las la-angle-right iq-arrow-right arrow-active"></i>
-                    <i className="las la-angle-down iq-arrow-right arrow-hover"></i>
-                  </a>
-                  <ul id="auth" className="iq-submenu collapse" data-parent="#otherpage">
-                    <li className="">
-                      <a href="../backend/auth-sign-in.html">
-                        <i className="las la-sign-in-alt"></i>
-                        <span>Đăng nhập</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../backend/auth-sign-up.html">
-                        <i className="las la-registered"></i>
-                        <span>Đăng ký</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../backend/auth-recoverpw.html">
-                        <i className="las la-unlock-alt"></i>
-                        <span>Khôi phục mật khẩu</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../backend/auth-confirm-mail.html">
-                        <i className="las la-envelope-square"></i>
-                        <span>Xác nhận Email</span>
-                      </a>
-                    </li>
-                    <li className="">
-                      <a href="../backend/auth-lock-screen.html">
-                        <i className="las la-lock"></i>
-                        <span>Khóa màn hình</span>
-                      </a>
-                    </li>
-                  </ul>
-                </li>
-              </ul>
+            <li className={isActive('/notifications')}>
+              <Link to="/notifications">
+                <i className="las la-bell iq-arrow-left"></i>
+                <span>Thông báo</span>
+              </Link>
+            </li>
+            <li className={isActive('/profile-edit')}>
+              <Link to="/profile-edit">
+                <i className="las la-user-cog iq-arrow-left"></i>
+                <span>Cài đặt</span>
+              </Link>
             </li>
           </ul>
         </nav>
-        <div className="sidebar-bottom">
-          <h4 className="mb-3">
-            <i className="las la-cloud mr-2"></i>Bộ nhớ
-          </h4>
-          <p>17.1 / 20 GB đã sử dụng</p>
-          <div className="iq-progress-bar mb-3">
-            <span className="bg-primary iq-progress progress-1" data-percent="67"></span>
+        {user && (
+          <div className="sidebar-bottom">
+            <h4 className="mb-3">
+              <i className="las la-cloud mr-2"></i>Bộ nhớ
+            </h4>
+            <p>{formatBytes(user.storage_used)} / {formatBytes(user.storage_limit)} đã sử dụng</p>
+            <div className="iq-progress-bar mb-3">
+              <span 
+                className="bg-primary iq-progress progress-1" 
+                style={{ width: `${getStoragePercentage()}%` }}
+              ></span>
+            </div>
+            <p>{getStoragePercentage()}% - còn trống {formatBytes(user.storage_limit - user.storage_used)}</p>
           </div>
-          <p>75% - còn trống 3.9 GB</p>
-          <a href="#" className="btn btn-outline-primary view-more mt-4">
-            Mua thêm dung lượng
-          </a>
-        </div>
+        )}
         <div className="p-3"></div>
       </div>
     </div>
