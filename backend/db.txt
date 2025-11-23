@@ -1,0 +1,231 @@
+1. Bảng users - Quản lý người dùng
+sql
+CREATE TABLE users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    email_verified_at TIMESTAMP NULL,
+    password VARCHAR(255) NOT NULL,
+    avatar VARCHAR(255) NULL, -- Đường dẫn đến ảnh đại diện
+    storage_used BIGINT UNSIGNED DEFAULT 0, -- Tổng dung lượng đã sử dụng (bytes)
+    storage_limit BIGINT UNSIGNED DEFAULT 16106127360, -- Giới hạn dung lượng (15GB mặc định)
+    date_of_birth DATE NULL,
+    gender ENUM('male', 'female', 'other') NULL,
+    bio TEXT NULL, -- Tiểu sử người dùng
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+2. Bảng password_reset_tokens - Quản lý reset mật khẩu
+sql
+CREATE TABLE password_reset_tokens (
+    email VARCHAR(255) PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NULL
+);
+3. Bảng sessions - Quản lý phiên đăng nhập
+sql
+CREATE TABLE sessions (
+    id VARCHAR(255) PRIMARY KEY,
+    user_id BIGINT UNSIGNED NULL,
+    ip_address VARCHAR(45) NULL,
+    user_agent TEXT NULL,
+    payload LONGTEXT NOT NULL,
+    last_activity INT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+4. Bảng friendships - Quản lý bạn bè
+sql
+CREATE TABLE friendships (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL, -- Người gửi lời mời
+    friend_id BIGINT UNSIGNED NOT NULL, -- Người nhận lời mời
+    status ENUM('pending', 'accepted', 'blocked') DEFAULT 'pending',
+    blocked_by BIGINT UNSIGNED NULL, -- Ai đã block
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (friend_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_friendship (user_id, friend_id)
+);
+5. Bảng media_files - Quản lý file media
+sql
+CREATE TABLE media_files (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    original_name VARCHAR(255) NOT NULL, -- Tên file gốc
+    file_name VARCHAR(255) UNIQUE NOT NULL, -- Tên file trên server
+    file_path VARCHAR(500) NOT NULL, -- Đường dẫn file gốc
+    thumbnail_path VARCHAR(500) NULL, -- Đường dẫn thumbnail
+    file_size BIGINT UNSIGNED NOT NULL, -- Kích thước file (bytes)
+    mime_type VARCHAR(100) NOT NULL, -- Loại file: image/jpeg, image/png, video/mp4, etc.
+    file_type ENUM('image', 'video', 'gif') NOT NULL,
+    width INT UNSIGNED NULL, -- Chiều rộng ảnh/video
+    height INT UNSIGNED NULL, -- Chiều cao ảnh/video
+    duration INT UNSIGNED NULL, -- Thời lượng video (giây)
+    
+    -- Metadata từ EXIF
+    title VARCHAR(255) NULL,
+    description TEXT NULL,
+    camera_make VARCHAR(100) NULL, -- Hãng máy ảnh
+    camera_model VARCHAR(100) NULL, -- Model máy ảnh
+    exposure_time VARCHAR(50) NULL, -- Thời gian phơi sáng
+    aperture VARCHAR(20) NULL, -- Khẩu độ
+    iso INT UNSIGNED NULL, -- Độ nhạy sáng
+    focal_length VARCHAR(20) NULL, -- Tiêu cự
+    taken_at TIMESTAMP NULL, -- Thời gian chụp ảnh (từ EXIF)
+    
+    -- Thông tin địa điểm
+    latitude DECIMAL(10, 8) NULL, -- Vĩ độ
+    longitude DECIMAL(11, 8) NULL, -- Kinh độ
+    location_name VARCHAR(255) NULL, -- Tên địa điểm
+    
+    is_favorite BOOLEAN DEFAULT FALSE, -- Đánh dấu yêu thích
+    is_trashed BOOLEAN DEFAULT FALSE, -- Đánh dấu trong thùng rác
+    trashed_at TIMESTAMP NULL, -- Thời gian xóa
+    deleted_at TIMESTAMP NULL, -- Soft delete
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_created (user_id, created_at),
+    INDEX idx_taken_date (taken_at),
+    INDEX idx_location (latitude, longitude),
+    INDEX idx_trashed (is_trashed, trashed_at)
+);
+6. Bảng albums - Quản lý album
+sql
+CREATE TABLE albums (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    cover_media_id BIGINT UNSIGNED NULL, -- Ảnh bìa album
+    is_auto_created BOOLEAN DEFAULT FALSE, -- Album tự động tạo từ metadata
+    auto_criteria JSON NULL, -- Tiêu chí tạo album tự động (theo ngày, địa điểm, etc.)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (cover_media_id) REFERENCES media_files(id) ON DELETE SET NULL
+);
+7. Bảng album_media - Quan hệ nhiều-nhiều giữa album và media
+sql
+CREATE TABLE album_media (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    album_id BIGINT UNSIGNED NOT NULL,
+    media_id BIGINT UNSIGNED NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    added_by BIGINT UNSIGNED NOT NULL, -- Ai thêm media vào album
+    
+    FOREIGN KEY (album_id) REFERENCES albums(id) ON DELETE CASCADE,
+    FOREIGN KEY (media_id) REFERENCES media_files(id) ON DELETE CASCADE,
+    FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_album_media (album_id, media_id)
+);
+8. Bảng shares - Quản lý chia sẻ
+sql
+CREATE TABLE shares (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    shareable_type ENUM('media', 'album') NOT NULL, -- Loại được chia sẻ
+    shareable_id BIGINT UNSIGNED NOT NULL, -- ID của media hoặc album
+    shared_by BIGINT UNSIGNED NOT NULL, -- Người chia sẻ
+    share_type ENUM('public_link', 'specific_users') NOT NULL,
+    token VARCHAR(100) UNIQUE NULL, -- Token cho link chia sẻ công khai
+    expires_at TIMESTAMP NULL, -- Thời gian hết hạn
+    password VARCHAR(255) NULL, -- Mật khẩu bảo vệ (nếu có)
+    allow_download BOOLEAN DEFAULT TRUE, -- Cho phép tải về
+    view_count INT UNSIGNED DEFAULT 0, -- Số lượt xem
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (shared_by) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_token (token),
+    INDEX idx_expires (expires_at)
+);
+9. Bảng share_users - Chia sẻ với người dùng cụ thể
+sql
+CREATE TABLE share_users (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    share_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NOT NULL, -- Người được chia sẻ
+    can_edit BOOLEAN DEFAULT FALSE, -- Quyền chỉnh sửa
+    can_share BOOLEAN DEFAULT FALSE, -- Quyền chia sẻ tiếp
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (share_id) REFERENCES shares(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_share_user (share_id, user_id)
+);
+10. Bảng notifications - Quản lý thông báo
+sql
+CREATE TABLE notifications (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL, -- Người nhận thông báo
+    type VARCHAR(100) NOT NULL, -- Loại thông báo: friend_request, share, upload_complete, etc.
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    data JSON NULL, -- Dữ liệu bổ sung
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_user_unread (user_id, is_read)
+);
+11. Bảng tags - Quản lý tags
+sql
+CREATE TABLE tags (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE, -- Tên tag
+    color VARCHAR(7) DEFAULT '#3B82F6', -- Màu sắc tag (hex)
+    created_by BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+12. Bảng media_tags - Quan hệ nhiều-nhiều giữa media và tags
+sql
+CREATE TABLE media_tags (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    media_id BIGINT UNSIGNED NOT NULL,
+    tag_id BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (media_id) REFERENCES media_files(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_media_tag (media_id, tag_id)
+);
+13. Bảng face_detections - Nhận diện khuôn mặt (nâng cao)
+sql
+CREATE TABLE face_detections (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    media_id BIGINT UNSIGNED NOT NULL,
+    user_id BIGINT UNSIGNED NULL, -- Người được nhận diện (nếu biết)
+    embedding JSON NOT NULL, -- Vector embedding của khuôn mặt
+    confidence DECIMAL(5,4) NOT NULL, -- Độ tin cậy nhận diện
+    bounding_box JSON NOT NULL, -- Tọa độ khuôn mặt trong ảnh
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (media_id) REFERENCES media_files(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user_media (user_id, media_id)
+);
+14. Bảng user_preferences - Tùy chọn người dùng
+sql
+CREATE TABLE user_preferences (
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+    theme ENUM('light', 'dark', 'system') DEFAULT 'system',
+    language VARCHAR(10) DEFAULT 'vi',
+    timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+    items_per_page INT DEFAULT 50,
+    auto_backup BOOLEAN DEFAULT FALSE,
+    compression_quality INT DEFAULT 85, -- Chất lượng nén ảnh
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
