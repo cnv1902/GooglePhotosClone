@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { STORAGE_BASE_URL } from "../utils/config";
 
 const Navbar = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   
   const handleLogout = () => {
@@ -74,6 +76,15 @@ const Navbar = () => {
             </button>
             <div className="collapse navbar-collapse" id="navbarSupportedContent">
               <ul className="navbar-nav ml-auto navbar-list align-items-center">
+                <li className="nav-item nav-icon">
+                  <button
+                    className="btn btn-link"
+                    onClick={toggleDarkMode}
+                    title={isDarkMode ? "Bật chế độ sáng" : "Bật chế độ tối"}
+                  >
+                    <i className={isDarkMode ? "ri-sun-line" : "ri-moon-line"}></i>
+                  </button>
+                </li>
                 <li className="nav-item nav-icon search-content">
                   <a
                     href="#"

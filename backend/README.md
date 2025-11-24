@@ -7,6 +7,25 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## About GooglePhotosClone Backend
+
+Backend API cho ứng dụng Google Photos Clone được xây dựng với Laravel framework.
+
+### Database Configuration
+
+Dự án này được cấu hình để sử dụng **Neon Database** (PostgreSQL serverless). 
+
+**Tham khảo file [NEON_DATABASE_SETUP.md](./NEON_DATABASE_SETUP.md) để biết cách cấu hình kết nối database.**
+
+### Các tính năng chính:
+
+- Kết nối Neon Database với custom connector
+- API RESTful với Laravel Sanctum authentication
+- Quản lý media files (ảnh, video)
+- Quản lý albums và chia sẻ
+- Hệ thống thông báo
+- Quản lý tags và metadata
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

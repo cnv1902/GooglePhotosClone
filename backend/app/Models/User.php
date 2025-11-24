@@ -21,6 +21,14 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'avatar',
+        'storage_used',
+        'storage_limit',
+        'date_of_birth',
+        'gender',
+        'bio',
+        'is_active',
+        'last_login_at',
     ];
 
     /**
@@ -41,5 +49,45 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'last_login_at' => 'datetime',
+        'date_of_birth' => 'date',
     ];
+
+    // Relationships
+    public function friendships()
+    {
+        return $this->hasMany(Friendship::class, 'user_id');
+    }
+
+    public function friends()
+    {
+        return $this->belongsToMany(User::class, 'friendships', 'user_id', 'friend_id')
+            ->wherePivot('status', 'accepted')
+            ->withTimestamps();
+    }
+
+    public function mediaFiles()
+    {
+        return $this->hasMany(MediaFile::class);
+    }
+
+    public function albums()
+    {
+        return $this->hasMany(Album::class);
+    }
+
+    public function shares()
+    {
+        return $this->hasMany(Share::class, 'shared_by');
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    public function preferences()
+    {
+        return $this->hasOne(UserPreference::class);
+    }
 }

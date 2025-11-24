@@ -42,6 +42,15 @@ class ApiService {
       }
 
       if (!response.ok) {
+        // Xử lý lỗi 401 (Unauthorized) - token hết hạn hoặc không hợp lệ
+        if (response.status === 401) {
+          this.setToken(null);
+          // Chỉ redirect nếu không phải đang ở trang đăng nhập
+          if (!window.location.pathname.includes('/sign-in') && !window.location.pathname.includes('/sign-up')) {
+            window.location.href = '/sign-in';
+          }
+          throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        }
         throw new Error(data.message || data.error || 'Có lỗi xảy ra');
       }
 
@@ -89,20 +98,67 @@ class ApiService {
     const formData = new FormData();
     if (profileData.name) formData.append('name', profileData.name);
     if (profileData.avatar) formData.append('avatar', profileData.avatar);
-    if (profileData.date_of_birth) formData.append('date_of_birth', profileData.date_of_birth);
-    if (profileData.gender) formData.append('gender', profileData.gender);
-    if (profileData.bio) formData.append('bio', profileData.bio);
+    if (profileData.date_of_birth !== undefined && profileData.date_of_birth !== null) {
+      formData.append('date_of_birth', profileData.date_of_birth);
+    }
+    if (profileData.gender !== undefined && profileData.gender !== null) {
+      formData.append('gender', profileData.gender);
+    }
+    if (profileData.bio !== undefined && profileData.bio !== null) {
+      formData.append('bio', profileData.bio);
+    }
 
-    return this.request('/profile', {
-      method: 'POST',
-      headers: {},
-      body: formData,
-    });
+    const token = this.token;
+    const url = `${this.baseURL}/profile`;
+    
+    const headers = {
+      'Accept': 'application/json',
+    };
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: formData,
+      });
+
+      let data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || 'Có lỗi xảy ra');
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Có lỗi xảy ra');
+      }
+
+      return data;
+    } catch (error) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra lại.');
+      }
+      throw error;
+    }
   }
 
   // Friends
   async getFriends(status = 'accepted') {
     return this.request(`/friends?status=${status}`);
+  }
+
+  async getSuggestedUsers(limit = 10) {
+    return this.request(`/friends/suggested?limit=${limit}`);
+  }
+
+  async getPendingRequests() {
+    return this.request('/friends/pending-requests');
   }
 
   async sendFriendRequest(friendId) {

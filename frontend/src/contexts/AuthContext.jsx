@@ -32,6 +32,7 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Auth check failed:', error);
         api.setToken(null);
+        setUser(null);
       }
     }
     setLoading(false);

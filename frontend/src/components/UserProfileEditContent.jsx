@@ -21,10 +21,20 @@ const UserProfileEditContent = () => {
 
   useEffect(() => {
     if (user) {
+      // Format date_of_birth để hiển thị đúng trong input type="date" (YYYY-MM-DD)
+      let formattedDate = "";
+      if (user.date_of_birth) {
+        const date = new Date(user.date_of_birth);
+        if (!isNaN(date.getTime())) {
+          // Format thành YYYY-MM-DD
+          formattedDate = date.toISOString().split('T')[0];
+        }
+      }
+      
       setFormData({
         name: user.name || "",
         email: user.email || "",
-        date_of_birth: user.date_of_birth || "",
+        date_of_birth: formattedDate,
         gender: user.gender || "",
         bio: user.bio || "",
       });

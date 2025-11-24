@@ -11,8 +11,8 @@ try {
   
   const root = createRoot(rootElement);
   root.render(
-    <StrictMode>
-      <App />
+  <StrictMode>
+    <App />
     </StrictMode>
   );
 } catch (error) {

@@ -17,6 +17,14 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('avatar')->nullable();
+            $table->unsignedBigInteger('storage_used')->default(0);
+            $table->unsignedBigInteger('storage_limit')->default(16106127360); // 15GB
+            $table->date('date_of_birth')->nullable();
+            $table->enum('gender', ['male', 'female', 'other'])->nullable();
+            $table->text('bio')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });

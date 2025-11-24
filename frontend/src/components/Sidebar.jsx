@@ -1,10 +1,29 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import api from "../services/api";
 
 const Sidebar = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const [pendingFriendRequests, setPendingFriendRequests] = useState(0);
+  
+  useEffect(() => {
+    loadPendingFriendRequests();
+    const interval = setInterval(() => {
+      loadPendingFriendRequests();
+    }, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadPendingFriendRequests = async () => {
+    try {
+      const data = await api.getPendingRequests();
+      setPendingFriendRequests(data?.length || 0);
+    } catch (error) {
+      console.error("Error loading pending friend requests:", error);
+    }
+  };
   
   const isActive = (path) => {
     return location.pathname === path ? 'active' : '';
@@ -65,6 +84,9 @@ const Sidebar = () => {
               <Link to="/friends">
                 <i className="las la-user-friends iq-arrow-left"></i>
                 <span>Bạn bè</span>
+                {pendingFriendRequests > 0 && (
+                  <span className="badge badge-danger ml-2">{pendingFriendRequests}</span>
+                )}
               </Link>
             </li>
             <li className={isActive('/favorites')}>
