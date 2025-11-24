@@ -26,6 +26,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
 Route::get('/shared/{token}', [ShareController::class, 'viewPublicShare']);
+Route::post('/shares/verify-password/{token}', [ShareController::class, 'verifyPassword']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -79,7 +80,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('shares')->group(function () {
         Route::post('/public-link', [ShareController::class, 'createPublicLink']);
         Route::post('/with-friends', [ShareController::class, 'shareWithFriends']);
-        Route::post('/verify-password/{token}', [ShareController::class, 'verifyPassword']);
         Route::get('/my-shares', [ShareController::class, 'myShares']);
         Route::get('/shared-with-me', [ShareController::class, 'sharedWithMe']);
         Route::put('/{id}', [ShareController::class, 'update']);

@@ -57,6 +57,17 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
     loadPhotos(1, true);
   }, [groupBy, sortBy, sortOrder]);
 
+  // Listen for upload events to reload photos
+  useEffect(() => {
+    const handleUploadComplete = () => {
+      loadPhotos(1, true);
+    };
+    window.addEventListener('photos-uploaded', handleUploadComplete);
+    return () => {
+      window.removeEventListener('photos-uploaded', handleUploadComplete);
+    };
+  }, [loadPhotos]);
+
   const handleScroll = useCallback(() => {
     if (loading || !hasMore || groupBy) return;
     

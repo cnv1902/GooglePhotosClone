@@ -139,8 +139,13 @@ class ShareController extends Controller
         // Tăng view count
         $share->increment('view_count');
 
+        // Prepare share data without password hash (only indicate if password exists)
+        $shareData = $share->toArray();
+        $shareData['has_password'] = !empty($share->password);
+        unset($shareData['password']); // Remove password hash from response
+
         return response()->json([
-            'share' => $share,
+            'share' => $shareData,
             'shareable' => $share->shareable
         ]);
     }

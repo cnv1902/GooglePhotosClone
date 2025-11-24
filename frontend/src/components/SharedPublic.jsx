@@ -51,9 +51,13 @@ const SharedPublic = () => {
       setShare(data.share);
       setShareable(data.shareable);
       
-      // Check if password is required
-      if (data.share.password) {
+      // Check if password is required and not yet verified
+      // Store password verification in sessionStorage to persist across reloads
+      const passwordVerified = sessionStorage.getItem(`share_verified_${token}`);
+      if (data.share.has_password && !passwordVerified) {
         setPasswordRequired(true);
+      } else if (passwordVerified) {
+        setPasswordRequired(false);
       }
     } catch (err) {
       console.error("Error loading share:", err);
@@ -95,12 +99,16 @@ const SharedPublic = () => {
 
       if (!response.ok) {
         setError(data.message || "Mật khẩu không đúng");
+        setPassword(""); // Clear password on error
         return;
       }
 
-      // Password verified, hide password form
+      // Password verified, store in sessionStorage and reload share data
+      sessionStorage.setItem(`share_verified_${token}`, 'true');
       setPasswordRequired(false);
       setPassword("");
+      setError(""); // Clear any previous errors
+      await loadPublicShare(); // Reload share data after password verification
     } catch (err) {
       console.error("Error verifying password:", err);
       setError(err.message || "Xác thực thất bại");

@@ -13,6 +13,7 @@ import UserProfileEdit from './components/UserProfileEdit'
 import UserList from './components/UserList'
 import Photos from './components/Photos'
 import Albums from './components/Albums'
+import AlbumDetail from './components/AlbumDetail'
 import Shared from './components/Shared'
 import SharedPublic from './components/SharedPublic'
 import Friends from './components/Friends'
@@ -72,6 +73,13 @@ function App() {
               <Route path="/albums" element={
                 <ProtectedRoute>
                   <Albums />
+                </ProtectedRoute>
+              } />
+              
+              {/* Trang chi tiết album */}
+              <Route path="/albums/:id" element={
+                <ProtectedRoute>
+                  <AlbumDetail />
                 </ProtectedRoute>
               } />
 

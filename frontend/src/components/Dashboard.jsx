@@ -13,6 +13,8 @@ const Dashboard = () => {
     try {
       await api.uploadMedia(Array.from(files));
       alert('Upload thành công!');
+      // Force reload photos by triggering a refresh
+      window.dispatchEvent(new Event('photos-uploaded'));
     } catch (error) {
       alert('Upload thất bại: ' + error.message);
     } finally {
