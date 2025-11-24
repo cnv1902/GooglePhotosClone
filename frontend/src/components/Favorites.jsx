@@ -13,7 +13,7 @@ const Favorites = () => {
             <div className="card card-block card-stretch card-height">
               <div className="card-body">
                 <h4>Ảnh yêu thích</h4>
-                <PhotoGrid />
+                <PhotoGrid favoritesOnly showBulkActions={true} />
               </div>
             </div>
           </div>

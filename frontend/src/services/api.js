@@ -308,6 +308,47 @@ class ApiService {
     });
   }
 
+  // Media Tags
+  async addTagsToMedia(mediaId, tags) {
+    return this.request('/media/add-tags', {
+      method: 'POST',
+      body: JSON.stringify({ media_id: mediaId, tags }),
+    });
+  }
+
+  async removeTagsFromMedia(mediaId, tagIds) {
+    return this.request('/media/remove-tags', {
+      method: 'POST',
+      body: JSON.stringify({ media_id: mediaId, tag_ids: tagIds }),
+    });
+  }
+
+  // Tags CRUD
+  async getTags(params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`/tags?${queryString}`);
+  }
+
+  async createTag(name, color) {
+    return this.request('/tags', {
+      method: 'POST',
+      body: JSON.stringify({ name, color }),
+    });
+  }
+
+  async updateTag(id, data) {
+    return this.request(`/tags/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTag(id) {
+    return this.request(`/tags/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Albums
   async getAlbums(params = {}) {
     const queryString = new URLSearchParams(params).toString();

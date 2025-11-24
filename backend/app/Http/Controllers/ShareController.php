@@ -52,6 +52,9 @@ class ShareController extends Controller
             'allow_download' => $request->get('allow_download', true),
         ]);
 
+        // Broadcast share created (public link only to owner channel for now)
+        event(new \App\Events\ShareCreated($share, [$user->id]));
+
         return response()->json([
             'message' => 'Đã tạo link chia sẻ',
             'share' => $share,
@@ -109,6 +112,9 @@ class ShareController extends Controller
             ]);
         }
 
+        // Broadcast share created to target friends
+        event(new \App\Events\ShareCreated($share, $request->friend_ids));
+
         $share->load('users');
 
         return response()->json([
@@ -118,7 +124,7 @@ class ShareController extends Controller
     }
 
     // Xem link chia sẻ công khai
-    public function viewPublicShare($token)
+    public function viewPublicShare(Request $request, $token)
     {
         $share = Share::where('token', $token)
             ->where('share_type', 'public_link')
@@ -128,25 +134,48 @@ class ShareController extends Controller
             })
             ->firstOrFail();
 
-        // Load shareable with its relations
+        $hasPassword = !empty($share->password);
+        $passwordProvided = $request->query('password');
+        $passwordVerified = false;
+
+        if ($hasPassword) {
+            // Nếu có mật khẩu nhưng chưa cung cấp hoặc sai -> chỉ trả metadata hạn chế
+            if ($passwordProvided && password_verify($passwordProvided, $share->password)) {
+                $passwordVerified = true;
+            } else {
+                return response()->json([
+                    'share' => [
+                        'id' => $share->id,
+                        'token' => $share->token,
+                        'expires_at' => $share->expires_at,
+                        'has_password' => true,
+                        'requires_password' => true,
+                        'view_count' => $share->view_count,
+                        'allow_download' => $share->allow_download,
+                    ],
+                    'message' => 'Cần mật khẩu để xem nội dung',
+                ], 401);
+            }
+        }
+
+        // Load shareable with its relations chỉ sau khi xác thực (nếu có mật khẩu)
         $share->load('shareable');
-        
         if ($share->shareable_type === 'album') {
-            // For albums, load media files
             $share->shareable->load('mediaFiles');
         }
 
         // Tăng view count
         $share->increment('view_count');
 
-        // Prepare share data without password hash (only indicate if password exists)
+        // Chuẩn bị dữ liệu trả về (ẩn hash password)
         $shareData = $share->toArray();
-        $shareData['has_password'] = !empty($share->password);
-        unset($shareData['password']); // Remove password hash from response
+        $shareData['has_password'] = $hasPassword;
+        $shareData['password_verified'] = $passwordVerified || !$hasPassword;
+        unset($shareData['password']);
 
         return response()->json([
             'share' => $shareData,
-            'shareable' => $share->shareable
+            'shareable' => $share->shareable,
         ]);
     }
 

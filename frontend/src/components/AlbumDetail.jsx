@@ -13,6 +13,10 @@ const AlbumDetail = () => {
   const [album, setAlbum] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showAddPhotosModal, setShowAddPhotosModal] = useState(false);
+  const [availablePhotos, setAvailablePhotos] = useState([]);
+  const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [loadingPhotos, setLoadingPhotos] = useState(false);
 
   useEffect(() => {
     loadAlbum();
@@ -29,6 +33,20 @@ const AlbumDetail = () => {
       setError(err.message || "Không thể tải album");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAvailablePhotos = async () => {
+    setLoadingPhotos(true);
+    try {
+      const data = await api.getMedia({ is_trashed: false });
+      const albumMediaIds = album?.media_files?.map(m => m.id) || [];
+      const filtered = (data.data || []).filter(photo => !albumMediaIds.includes(photo.id));
+      setAvailablePhotos(filtered);
+    } catch (error) {
+      console.error('Error loading photos:', error);
+    } finally {
+      setLoadingPhotos(false);
     }
   };
 
@@ -59,6 +77,33 @@ const AlbumDetail = () => {
       loadAlbum();
     } catch (error) {
       alert(error.message || "Xóa ảnh thất bại");
+    }
+  };
+
+  const handleOpenAddPhotos = () => {
+    // Chuyển sang trang Photos với chế độ thêm vào album
+    navigate('/photos', { state: { addToAlbumId: id } });
+  };
+
+  const togglePhotoSelection = (photoId) => {
+    setSelectedPhotos(prev =>
+      prev.includes(photoId) ? prev.filter(id => id !== photoId) : [...prev, photoId]
+    );
+  };
+
+  const handleAddPhotosToAlbum = async () => {
+    if (selectedPhotos.length === 0) {
+      alert('Vui lòng chọn ít nhất một ảnh');
+      return;
+    }
+    try {
+      await api.addMediaToAlbum(id, selectedPhotos);
+      alert(`Đã thêm ${selectedPhotos.length} ảnh vào album`);
+      setShowAddPhotosModal(false);
+      setSelectedPhotos([]);
+      loadAlbum();
+    } catch (error) {
+      alert(error.message || 'Thêm ảnh thất bại');
     }
   };
 
@@ -122,6 +167,12 @@ const AlbumDetail = () => {
                 </div>
                 <div>
                   <button
+                    className="btn btn-primary mr-2"
+                    onClick={handleOpenAddPhotos}
+                  >
+                    Thêm ảnh
+                  </button>
+                  <button
                     className="btn btn-danger mr-2"
                     onClick={handleDeleteAlbum}
                   >
@@ -143,6 +194,60 @@ const AlbumDetail = () => {
                       key={media.id}
                       className="col-lg-2 col-md-3 col-sm-4 col-6 mb-3"
                     >
+              {showAddPhotosModal && (
+                <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={() => setShowAddPhotosModal(false)}>
+                  <div className="modal-dialog modal-lg modal-dialog-scrollable" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-content" style={{ maxHeight: '90vh' }}>
+                      <div className="modal-header">
+                        <h5 className="modal-title">Chọn ảnh thêm vào album</h5>
+                        <button type="button" className="close" onClick={() => setShowAddPhotosModal(false)}>
+                          <span>&times;</span>
+                        </button>
+                      </div>
+                      <div className="modal-body" style={{ overflowY: 'auto' }}>
+                        {loadingPhotos ? (
+                          <div className="text-center my-4">
+                            <div className="spinner-border" role="status">
+                              <span className="sr-only">Đang tải...</span>
+                            </div>
+                          </div>
+                        ) : availablePhotos.length === 0 ? (
+                          <p className="text-muted">Không còn ảnh nào để thêm</p>
+                        ) : (
+                          <div className="row">
+                            {availablePhotos.map(photo => (
+                              <div key={photo.id} className="col-lg-2 col-md-3 col-sm-4 col-6 mb-3" onClick={() => togglePhotoSelection(photo.id)} style={{ cursor: 'pointer' }}>
+                                <div className="position-relative">
+                                  <img
+                                    src={`${STORAGE_BASE_URL}/storage/${photo.thumbnail_path || photo.file_path}`}
+                                    alt={photo.original_name}
+                                    className="img-fluid rounded"
+                                    style={{ height: '150px', width: '100%', objectFit: 'cover', opacity: selectedPhotos.includes(photo.id) ? 0.6 : 1 }}
+                                  />
+                                  <div className="position-absolute" style={{ top: '8px', left: '8px' }}>
+                                    <input type="checkbox" checked={selectedPhotos.includes(photo.id)} onChange={() => togglePhotoSelection(photo.id)} />
+                                  </div>
+                                  {photo.mime_type?.startsWith('video/') && (
+                                    <div className="position-absolute" style={{ bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.5)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '11px' }}>Video</div>
+                                  )}
+                                </div>
+                                <small className="d-block text-truncate mt-1" title={photo.original_name}>{photo.original_name}</small>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="modal-footer d-flex justify-content-between align-items-center flex-wrap" style={{ gap: '8px' }}>
+                        <div className="text-muted small">Đã chọn: {selectedPhotos.length}</div>
+                        <div>
+                          <button type="button" className="btn btn-secondary btn-sm mr-2" onClick={() => setShowAddPhotosModal(false)}>Đóng</button>
+                          <button type="button" className="btn btn-primary btn-sm" disabled={selectedPhotos.length === 0} onClick={handleAddPhotosToAlbum}>Thêm vào album</button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
                       <div className="card position-relative">
                         <img
                           src={getMediaUrl(media)}

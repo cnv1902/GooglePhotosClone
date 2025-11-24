@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MediaFile;
 use App\Models\User;
 use App\Models\Notification;
+use App\Models\UserPreference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -161,8 +162,13 @@ class MediaController extends Controller
                     $width = $image->width();
                     $height = $image->height();
 
-                    // Tối ưu ảnh trước khi lưu (giữ nguyên format)
-                    $image->save($fullPath);
+                    // Lấy chất lượng nén từ preferences hoặc config
+                    $quality = optional($user->preferences)->compression_quality ?? config('media.default_compression_quality');
+                    if ($quality < 30) { $quality = 30; } // Ngưỡng an toàn
+                    if ($quality > 95) { $quality = 95; }
+
+                    // Tối ưu ảnh trước khi lưu theo quality (giữ format)
+                    $image->save($fullPath, quality: $quality);
 
                     // Tạo thumbnail
                     $thumbnail = $image->scale(width: 300, height: 300);
@@ -172,7 +178,7 @@ class MediaController extends Controller
                     if (!file_exists($thumbnailDir)) {
                         mkdir($thumbnailDir, 0755, true);
                     }
-                    $thumbnail->save(storage_path('app/public/' . $thumbnailPath));
+                    $thumbnail->save(storage_path('app/public/' . $thumbnailPath), quality: $quality);
 
                     // Trích xuất EXIF metadata
                     $metadata = $this->extractExifData($fullPath);
@@ -187,7 +193,39 @@ class MediaController extends Controller
                 $width = null;
                 $height = null;
                 $duration = null;
-                // Note: Cần ffmpeg để lấy thông tin video chi tiết
+                $ffmpegPath = config('media.ffmpeg_path', 'ffmpeg');
+                try {
+                    // Lấy metadata video bằng ffmpeg (nếu có)
+                    $probeCmd = escapeshellcmd($ffmpegPath) . ' -i ' . escapeshellarg($fullPath) . ' 2>&1';
+                    $output = shell_exec($probeCmd);
+                    if ($output) {
+                        // Duration
+                        if (preg_match('/Duration: (\d+):(\d+):(\d+\.\d+)/', $output, $matches)) {
+                            $h = (int)$matches[1]; $m = (int)$matches[2]; $s = (float)$matches[3];
+                            $duration = (int)round($h*3600 + $m*60 + $s);
+                        }
+                        // Resolution
+                        if (preg_match('/, (\d{2,5})x(\d{2,5})[, ]/', $output, $res)) {
+                            $width = (int)$res[1];
+                            $height = (int)$res[2];
+                        }
+                    }
+                    // Tạo thumbnail frame ở 1s
+                    $thumbDir = storage_path('app/public/media/' . $user->id . '/thumbnails');
+                    if (!file_exists($thumbDir)) {
+                        mkdir($thumbDir, 0755, true);
+                    }
+                    $thumbnailFileName = 'thumb_' . $fileName . '.jpg';
+                    $thumbnailPath = 'media/' . $user->id . '/thumbnails/' . $thumbnailFileName;
+                    $thumbFullPath = storage_path('app/public/' . $thumbnailPath);
+                    $thumbCmd = escapeshellcmd($ffmpegPath) . ' -y -i ' . escapeshellarg($fullPath) . ' -ss 00:00:01 -vframes 1 ' . escapeshellarg($thumbFullPath) . ' 2>&1';
+                    shell_exec($thumbCmd);
+                    if (!file_exists($thumbFullPath)) {
+                        $thumbnailPath = null; // failed
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Video processing error: ' . $e->getMessage());
+                }
             }
 
             // Tạo media file record
@@ -229,6 +267,14 @@ class MediaController extends Controller
             ]);
 
             $uploadedFiles[] = $mediaFile;
+
+            // Dispatch reverse geocode nếu chưa có location_name
+            if (!$mediaFile->location_name && $mediaFile->latitude && $mediaFile->longitude) {
+                \App\Jobs\ReverseGeocodeMedia::dispatch($mediaFile->id)->onQueue('default');
+            }
+
+            // Phát sự kiện realtime upload
+            event(new \App\Events\UploadCompleted($mediaFile));
         }
 
         return response()->json([
@@ -266,6 +312,14 @@ class MediaController extends Controller
         if ($request->has('location')) {
             $query->whereNotNull('latitude')
                   ->whereNotNull('longitude');
+        }
+
+        // Lọc yêu thích
+        if ($request->has('is_favorite')) {
+            $isFav = filter_var($request->get('is_favorite'), FILTER_VALIDATE_BOOLEAN);
+            if ($isFav) {
+                $query->where('is_favorite', true);
+            }
         }
 
         // Sắp xếp
@@ -555,5 +609,63 @@ class MediaController extends Controller
             return floatval($coordinate[0]) / floatval($coordinate[1]);
         }
         return floatval($coordinate);
+    }
+
+    // Thêm tags cho media
+    public function addTags(Request $request)
+    {
+        $request->validate([
+            'media_id' => 'required|exists:media_files,id',
+            'tags' => 'required|array',
+            'tags.*.name' => 'required|string|max:100',
+            'tags.*.color' => 'nullable|regex:/^#[0-9A-Fa-f]{6}$/',
+        ]);
+
+        $user = Auth::user();
+        $media = MediaFile::where('user_id', $user->id)->findOrFail($request->media_id);
+
+        $tagIds = [];
+        foreach ($request->tags as $tagInput) {
+            $tag = \App\Models\Tag::firstOrCreate(
+                ['name' => $tagInput['name']],
+                [
+                    'color' => $tagInput['color'] ?? '#3B82F6',
+                    'created_by' => $user->id,
+                ]
+            );
+            $tagIds[] = $tag->id;
+        }
+
+        // Gắn tags (tránh duplicate)
+        $existing = $media->tags()->pluck('tags.id')->toArray();
+        $newAttach = array_diff($tagIds, $existing);
+        if (!empty($newAttach)) {
+            $media->tags()->attach($newAttach);
+        }
+
+        $media->load('tags');
+        return response()->json([
+            'message' => 'Đã thêm tags',
+            'media' => $media,
+        ]);
+    }
+
+    // Xóa tags khỏi media
+    public function removeTags(Request $request)
+    {
+        $request->validate([
+            'media_id' => 'required|exists:media_files,id',
+            'tag_ids' => 'required|array',
+            'tag_ids.*' => 'exists:tags,id',
+        ]);
+
+        $user = Auth::user();
+        $media = MediaFile::where('user_id', $user->id)->findOrFail($request->media_id);
+        $media->tags()->detach($request->tag_ids);
+        $media->load('tags');
+        return response()->json([
+            'message' => 'Đã xóa tags',
+            'media' => $media,
+        ]);
     }
 }

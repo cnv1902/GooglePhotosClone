@@ -2,13 +2,14 @@ import React, { useState, useEffect } from "react";
 import useDocumentTitle from "../hooks/useDocumentTitle";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { STORAGE_BASE_URL } from "../utils/config";
 
 const Friends = () => {
   useDocumentTitle("Bạn bè - Google Photos Clone");
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(() => {
     // Check if there's state from navigation
     if (location.state?.tab) {
@@ -171,27 +172,35 @@ const Friends = () => {
     const friendship = userData.friendship || null;
     const isPending = friendship?.status === "pending";
     const isSentByMe = friendship && friendship.user_id === user?.id;
+    // Nếu không có quan hệ friendship nhưng có friendship_id (trả về từ danh sách bạn bè đã chấp nhận) thì vẫn coi là bạn
+    const isAcceptedByField = !!userData.friendship_id;
+    const isFriend = (friendship?.status === "accepted") || isAcceptedByField;
 
     return (
       <div key={userData.id} className="col-lg-3 col-md-4 col-sm-6 mb-3">
         <div className="card">
           <div className="card-body text-center">
-            <img
-              src={getAvatarUrl(userData.avatar)}
-              alt={userData.name}
-              className="rounded-circle mb-2"
-              style={{ width: "80px", height: "80px", objectFit: "cover" }}
-            />
-            <h5>{userData.name}</h5>
-            <p className="text-muted small">{userData.email}</p>
+            <div
+              style={{ cursor: isFriend ? 'pointer' : 'default' }}
+              onClick={() => isFriend && navigate(`/friends/${userData.id}`)}
+            >
+              <img
+                src={getAvatarUrl(userData.avatar)}
+                alt={userData.name}
+                className="rounded-circle mb-2"
+                style={{ width: "80px", height: "80px", objectFit: "cover" }}
+              />
+              <h5>{userData.name}</h5>
+              <p className="text-muted small">{userData.email}</p>
+            </div>
             {showActions && (
-              <div className="mt-2">
+              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 {actions || (
                   <>
                     {!friendship && (
                       <button
                         className="btn btn-sm btn-primary"
-                        onClick={() => handleSendRequest(userData.id)}
+                        onClick={(e) => { e.stopPropagation(); handleSendRequest(userData.id); }}
                       >
                         Kết bạn
                       </button>
@@ -200,13 +209,13 @@ const Friends = () => {
                       <>
                         <button
                           className="btn btn-sm btn-success mr-1"
-                          onClick={() => handleAcceptRequest(friendship.id)}
+                          onClick={(e) => { e.stopPropagation(); handleAcceptRequest(friendship.id); }}
                         >
                           Chấp nhận
                         </button>
                         <button
                           className="btn btn-sm btn-danger"
-                          onClick={() => handleRejectRequest(friendship.id)}
+                          onClick={(e) => { e.stopPropagation(); handleRejectRequest(friendship.id); }}
                         >
                           Từ chối
                         </button>
@@ -219,13 +228,13 @@ const Friends = () => {
                       <>
                         <button
                           className="btn btn-sm btn-danger mr-1"
-                          onClick={() => handleRemoveFriend(friendship.id)}
+                          onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friendship.id); }}
                         >
                           Xóa bạn
                         </button>
                         <button
                           className="btn btn-sm btn-secondary"
-                          onClick={() => handleBlockFriend(userData.id)}
+                          onClick={(e) => { e.stopPropagation(); handleBlockFriend(userData.id); }}
                         >
                           Chặn
                         </button>
@@ -323,13 +332,13 @@ const Friends = () => {
                           <>
                             <button
                               className="btn btn-sm btn-danger mr-1"
-                              onClick={() => handleRemoveFriend(friend.friendship_id)}
+                              onClick={(e) => { e.stopPropagation(); handleRemoveFriend(friend.friendship_id); }}
                             >
                               Xóa bạn
                             </button>
                             <button
                               className="btn btn-sm btn-secondary"
-                              onClick={() => handleBlockFriend(friend.id)}
+                              onClick={(e) => { e.stopPropagation(); handleBlockFriend(friend.id); }}
                             >
                               Chặn
                             </button>

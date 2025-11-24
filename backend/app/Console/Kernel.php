@@ -12,7 +12,10 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Dọn thùng rác media mỗi ngày 01:30
+        $schedule->command('media:cleanup-trash')->dailyAt('01:30');
+        // Xóa shares hết hạn mỗi giờ
+        $schedule->command('shares:cleanup-expired')->hourly();
     }
 
     /**

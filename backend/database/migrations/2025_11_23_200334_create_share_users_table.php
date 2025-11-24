@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->boolean('can_edit')->default(false);
             $table->boolean('can_share')->default(false);
-            $table->timestamp('created_at')->useCurrent();
             $table->unique(['share_id', 'user_id']);
         });
     }

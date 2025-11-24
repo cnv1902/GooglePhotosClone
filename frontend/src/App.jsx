@@ -17,6 +17,7 @@ import AlbumDetail from './components/AlbumDetail'
 import Shared from './components/Shared'
 import SharedPublic from './components/SharedPublic'
 import Friends from './components/Friends'
+import FriendProfile from './components/FriendProfile'
 import Favorites from './components/Favorites'
 import Trash from './components/Trash'
 import Notifications from './components/Notifications'
@@ -97,6 +98,13 @@ function App() {
               <Route path="/friends" element={
                 <ProtectedRoute>
                   <Friends />
+                </ProtectedRoute>
+              } />
+
+              {/* Trang profile bạn bè */}
+              <Route path="/friends/:friendId" element={
+                <ProtectedRoute>
+                  <FriendProfile />
                 </ProtectedRoute>
               } />
 

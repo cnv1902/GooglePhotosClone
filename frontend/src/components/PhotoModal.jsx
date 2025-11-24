@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { STORAGE_BASE_URL } from '../utils/config';
 import { useAuth } from '../contexts/AuthContext';
+import chroma from 'chroma-js';
 
-const PhotoModal = ({ photo, onClose }) => {
+const PhotoModal = ({ photo, onClose, onPhotoDeleted }) => {
   const { user } = useAuth();
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareType, setShareType] = useState('public'); // 'public' or 'friends'
@@ -14,13 +15,31 @@ const PhotoModal = ({ photo, onClose }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [shares, setShares] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState('#3B82F6');
+  const [tagLoading, setTagLoading] = useState(false);
+  const [albums, setAlbums] = useState([]);
+  const [showAlbumModal, setShowAlbumModal] = useState(false);
+  const [selectedAlbum, setSelectedAlbum] = useState('');
 
   useEffect(() => {
     if (photo) {
       loadShares();
       loadFriends();
+      loadTags();
+      loadAlbums();
     }
   }, [photo]);
+
+  const loadAlbums = async () => {
+    try {
+      const data = await api.getAlbums();
+      setAlbums(data.data || []);
+    } catch (error) {
+      console.error('Error loading albums:', error);
+    }
+  };
 
   const loadShares = async () => {
     try {
@@ -28,6 +47,58 @@ const PhotoModal = ({ photo, onClose }) => {
       setShares(data.data || []);
     } catch (error) {
       console.error('Error loading shares:', error);
+    }
+  };
+
+  const loadTags = async () => {
+    if (!photo) return;
+    try {
+      // Media detail đã có tags? nếu chưa fetch bằng getMediaById
+      const data = await api.getMediaById(photo.id);
+      setTags(data.tags || []);
+    } catch (e) {
+      console.error('Error loading tags:', e);
+    }
+  };
+
+  const handleAddTag = async () => {
+    if (!newTagName.trim()) return;
+    setTagLoading(true);
+    try {
+      const tagPayload = [{ name: newTagName.trim(), color: newTagColor }];
+      const result = await api.addTagsToMedia(photo.id, tagPayload);
+      setTags(result.media.tags || []);
+      setNewTagName('');
+    } catch (e) {
+      alert(e.message || 'Không thêm được tag');
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  const handleRemoveTag = async (tagId) => {
+    if (!window.confirm('Xóa tag khỏi ảnh?')) return;
+    setTagLoading(true);
+    try {
+      const result = await api.removeTagsFromMedia(photo.id, [tagId]);
+      setTags(result.media.tags || []);
+    } catch (e) {
+      alert(e.message || 'Không xóa được tag');
+    } finally {
+      setTagLoading(false);
+    }
+  };
+
+  const getTagStyle = (color) => {
+    try {
+      const bg = chroma(color || '#3B82F6');
+      return {
+        backgroundColor: bg.hex(),
+        color: bg.luminance() > 0.5 ? '#222' : '#fff',
+        border: 'none',
+      };
+    } catch {
+      return { backgroundColor: '#3B82F6', color: '#fff', border: 'none' };
     }
   };
 
@@ -102,6 +173,32 @@ const PhotoModal = ({ photo, onClose }) => {
     }
   };
 
+  const handleDeleteToTrash = async () => {
+    if (!window.confirm('Chuyển ảnh vào thùng rác?')) return;
+    try {
+      await api.deleteMedia([photo.id]);
+      alert('Đã chuyển vào thùng rác');
+      if (onPhotoDeleted) onPhotoDeleted(photo.id);
+      onClose();
+    } catch (error) {
+      alert(error.message || 'Xóa thất bại');
+    }
+  };
+
+  const handleAddToAlbum = async () => {
+    if (!selectedAlbum) {
+      alert('Vui lòng chọn album');
+      return;
+    }
+    try {
+      await api.addMediaToAlbum(selectedAlbum, [photo.id]);
+      alert('Đã thêm vào album');
+      setShowAlbumModal(false);
+    } catch (error) {
+      alert(error.message || 'Thêm vào album thất bại');
+    }
+  };
+
   if (!photo) return null;
 
   const imageUrl = `${STORAGE_BASE_URL}/storage/${photo.file_path}`;
@@ -114,20 +211,20 @@ const PhotoModal = ({ photo, onClose }) => {
         style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.8)' }}
         onClick={onClose}
       >
-        <div className="modal-dialog modal-xl modal-dialog-centered">
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-dialog modal-xl modal-dialog-scrollable" style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '90vh' }}>
             <div className="modal-header">
               <h5 className="modal-title">{photo.original_name}</h5>
               <button type="button" className="close" onClick={onClose}>
                 <span>&times;</span>
               </button>
             </div>
-            <div className="modal-body text-center">
+            <div className="modal-body text-center" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
               <img
                 src={imageUrl}
                 alt={photo.original_name}
                 className="img-fluid"
-                style={{ maxHeight: '70vh' }}
+                style={{ maxHeight: '50vh', maxWidth: '100%', objectFit: 'contain' }}
               />
               {photo.description && (
                 <p className="mt-3">{photo.description}</p>
@@ -152,6 +249,50 @@ const PhotoModal = ({ photo, onClose }) => {
                   {photo.exposure_time && (
                     <p><strong>Thông số:</strong> {photo.exposure_time}, {photo.aperture}, ISO {photo.iso}</p>
                   )}
+                </div>
+              </div>
+
+              {/* Tags section */}
+              <div className="mt-3 text-left">
+                <h6 className="mb-2">Tags</h6>
+                {tags.length === 0 && (
+                  <p className="text-muted small mb-2">Chưa có tag</p>
+                )}
+                <div className="d-flex flex-wrap gap-2 mb-3">
+                  {tags.map(t => (
+                    <span key={t.id} className="badge position-relative mr-2 mb-2" style={getTagStyle(t.color)}>
+                      {t.name}
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-link text-light p-0 ml-1"
+                        style={{ textDecoration: 'none' }}
+                        onClick={(e) => { e.stopPropagation(); handleRemoveTag(t.id); }}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+                <div className="d-flex align-items-center" style={{ gap: '8px', maxWidth: '300px' }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tên tag"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    disabled={tagLoading}
+                  />
+                  <input
+                    type="color"
+                    className="form-control form-control-sm"
+                    value={newTagColor}
+                    onChange={(e) => setNewTagColor(e.target.value)}
+                    disabled={tagLoading}
+                    style={{ width: '60px' }}
+                  />
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={handleAddTag}
+                    disabled={tagLoading || !newTagName.trim()}
+                  >{tagLoading ? 'Đang...' : 'Thêm'}</button>
                 </div>
               </div>
 
@@ -186,15 +327,29 @@ const PhotoModal = ({ photo, onClose }) => {
                 </div>
               )}
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer d-flex flex-wrap" style={{ gap: '8px' }}>
               <button 
                 type="button" 
-                className="btn btn-primary" 
+                className="btn btn-sm btn-primary" 
                 onClick={() => setShowShareModal(true)}
               >
                 Chia sẻ
               </button>
-              <button type="button" className="btn btn-secondary" onClick={onClose}>
+              <button 
+                type="button" 
+                className="btn btn-sm btn-info" 
+                onClick={() => setShowAlbumModal(true)}
+              >
+                Thêm vào album
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-sm btn-danger" 
+                onClick={handleDeleteToTrash}
+              >
+                Xóa
+              </button>
+              <button type="button" className="btn btn-sm btn-secondary" onClick={onClose}>
                 Đóng
               </button>
             </div>
@@ -202,14 +357,72 @@ const PhotoModal = ({ photo, onClose }) => {
         </div>
       </div>
 
+      {/* Album Modal */}
+      {showAlbumModal && (
+        <div 
+          className="modal fade show" 
+          style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}
+          onClick={() => setShowAlbumModal(false)}
+        >
+          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Thêm vào album</h5>
+                <button type="button" className="close" onClick={() => setShowAlbumModal(false)}>
+                  <span>&times;</span>
+                </button>
+              </div>
+              <div className="modal-body">
+                {albums.length === 0 ? (
+                  <p className="text-muted">Bạn chưa có album nào</p>
+                ) : (
+                  <div className="form-group">
+                    <label>Chọn album:</label>
+                    <select 
+                      className="form-control" 
+                      value={selectedAlbum} 
+                      onChange={(e) => setSelectedAlbum(e.target.value)}
+                    >
+                      <option value="">-- Chọn album --</option>
+                      {albums.map((album) => (
+                        <option key={album.id} value={album.id}>
+                          {album.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleAddToAlbum}
+                  disabled={!selectedAlbum || albums.length === 0}
+                >
+                  Thêm
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowAlbumModal(false)}
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Share Modal */}
       {showShareModal && (
         <div 
           className="modal fade show" 
-          style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}
+          style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1060 }}
           onClick={() => setShowShareModal(false)}
         >
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Chia sẻ ảnh</h5>

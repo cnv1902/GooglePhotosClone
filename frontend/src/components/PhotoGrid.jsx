@@ -3,7 +3,7 @@ import api from '../services/api';
 import PhotoModal from './PhotoModal';
 import { STORAGE_BASE_URL } from '../utils/config';
 
-const PhotoGrid = ({ groupBy = null, onUpload }) => {
+const PhotoGrid = ({ groupBy = null, onUpload, showBulkActions = true, favoritesOnly = false, addToAlbumId = null, onAddSelectionChange = null }) => {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -11,6 +11,9 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
   const [hasMore, setHasMore] = useState(true);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const loadPhotos = useCallback(async (pageNum = 1, reset = false) => {
     if (loading) return;
@@ -31,12 +34,16 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
         setPhotos(data);
         setHasMore(false);
       } else {
-        data = await api.getMedia({
+        const params = {
           page: pageNum,
           per_page: 30,
           sort_by: sortBy,
           sort_order: sortOrder,
-        });
+        };
+        if (favoritesOnly) {
+          params.is_favorite = true;
+        }
+        data = await api.getMedia(params);
         
         if (reset) {
           setPhotos(data.data || []);
@@ -51,11 +58,12 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
     } finally {
       setLoading(false);
     }
-  }, [groupBy, sortBy, sortOrder, loading]);
+  }, [groupBy, sortBy, sortOrder, loading, favoritesOnly]);
 
   useEffect(() => {
     loadPhotos(1, true);
-  }, [groupBy, sortBy, sortOrder]);
+    setSelectedIds([]);
+  }, [groupBy, sortBy, sortOrder, favoritesOnly]);
 
   // Listen for upload events to reload photos
   useEffect(() => {
@@ -87,7 +95,87 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
   }, [handleScroll]);
 
   const handlePhotoClick = (photo) => {
-    setSelectedPhoto(photo);
+    if (bulkMode) {
+      toggleSelect(photo.id);
+    } else {
+      setSelectedPhoto(photo);
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      if (onAddSelectionChange) onAddSelectionChange(next);
+      return next;
+    });
+  };
+  const selectAllPage = () => {
+    const idsOnPage = photos.map(p => p.id);
+    setSelectedIds(idsOnPage);
+  };
+  const clearSelection = () => {
+    setSelectedIds([]);
+    if (onAddSelectionChange) onAddSelectionChange([]);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm('Chuyển vào thùng rác các mục đã chọn?')) return;
+    setBulkLoading(true);
+    try {
+      await api.deleteMedia(selectedIds);
+      clearSelection();
+      window.dispatchEvent(new Event('photos-uploaded'));
+    } catch (e) {
+      alert(e.message || 'Không xóa được');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkFavorite = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkLoading(true);
+    try {
+      for (const id of selectedIds) {
+        await api.toggleFavorite(id);
+      }
+      clearSelection();
+      window.dispatchEvent(new Event('photos-uploaded'));
+    } catch (e) {
+      alert(e.message || 'Không đổi trạng thái yêu thích');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const bulkBar = () => {
+    // Album add mode forces selection but hides destructive actions
+    if (addToAlbumId && !bulkMode) {
+      setBulkMode(true);
+    }
+    if (!showBulkActions && !addToAlbumId) return null;
+    return (
+      <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+        {!addToAlbumId && (
+          <button className={`btn btn-sm ${bulkMode ? 'btn-secondary' : 'btn-outline-secondary'}`} onClick={() => { setBulkMode(!bulkMode); if (!bulkMode) clearSelection(); }}>
+            {bulkMode ? 'Thoát chọn' : 'Chế độ chọn'}
+          </button>
+        )}
+        {bulkMode && !addToAlbumId && (
+          <>
+            <button className="btn btn-sm btn-outline-primary" onClick={selectAllPage}>Chọn trang</button>
+            <button className="btn btn-sm btn-outline-dark" onClick={clearSelection}>Bỏ chọn</button>
+            <button className="btn btn-sm btn-danger" disabled={bulkLoading || selectedIds.length===0} onClick={handleBulkDelete}>Xóa ({selectedIds.length})</button>
+            <button className="btn btn-sm btn-warning" disabled={bulkLoading || selectedIds.length===0} onClick={handleBulkFavorite}>Yêu thích / Bỏ yêu thích</button>
+          </>
+        )}
+        {addToAlbumId && (
+          <div className="small text-muted">Đang chọn ảnh để thêm vào album</div>
+        )}
+        {bulkLoading && <span className="small text-muted">Đang xử lý...</span>}
+      </div>
+    );
   };
 
   const handleDrop = async (e) => {
@@ -172,9 +260,14 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
                 src={`http://localhost:8000/storage/${photo.thumbnail_path || photo.file_path}`}
                 alt={photo.original_name}
                 className="img-fluid rounded"
-                style={{ width: '100%', height: '200px', objectFit: 'cover' }}
+                style={{ width: '100%', height: '200px', objectFit: 'cover', opacity: bulkMode && selectedIds.includes(photo.id) ? 0.6 : 1 }}
                 loading="lazy"
               />
+              {bulkMode && (
+                <div className="position-absolute" style={{ top: '8px', left: '8px' }} onClick={(e)=>{e.stopPropagation(); toggleSelect(photo.id);}}>
+                  <input type="checkbox" checked={selectedIds.includes(photo.id)} onChange={()=>toggleSelect(photo.id)} />
+                </div>
+              )}
               {photo.is_favorite && (
                 <i className="ri-heart-fill position-absolute text-danger" 
                    style={{ top: '10px', right: '10px' }}></i>
@@ -192,8 +285,8 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
       onDragOver={(e) => e.preventDefault()}
       style={{ minHeight: '400px' }}
     >
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h4>Ảnh của tôi</h4>
+      <div className="d-flex justify-content-between align-items-center mb-2">
+        <h4>{favoritesOnly ? 'Ảnh yêu thích' : 'Ảnh của tôi'}</h4>
         <div className="d-flex gap-2">
           <select 
             className="form-control form-control-sm"
@@ -212,6 +305,7 @@ const PhotoGrid = ({ groupBy = null, onUpload }) => {
           </button>
         </div>
       </div>
+      {bulkBar()}
 
       {groupBy ? renderGroupedPhotos() : renderPhotos()}
 

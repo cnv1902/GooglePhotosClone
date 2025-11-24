@@ -57,6 +57,9 @@ class FriendController extends Controller
         })->first();
         
         if ($existing) {
+            if ($existing->status === 'blocked') {
+                return response()->json(['message' => 'Không thể gửi yêu cầu kết bạn'], 403);
+            }
             return response()->json(['message' => 'Đã có yêu cầu kết bạn'], 400);
         }
         
@@ -65,6 +68,9 @@ class FriendController extends Controller
             'friend_id' => $friendId,
             'status' => 'pending',
         ]);
+
+        // Broadcast friend request
+        event(new \App\Events\FriendRequestSent($friendship));
         
         // Tạo thông báo
         Notification::create([
@@ -155,6 +161,32 @@ class FriendController extends Controller
         }
         
         return response()->json(['message' => 'Đã chặn người dùng', 'friendship' => $friendship]);
+    }
+
+    // Unblock bạn
+    public function unblockFriend(Request $request)
+    {
+        $request->validate([
+            'friend_id' => 'required|exists:users,id',
+        ]);
+        
+        $user = Auth::user();
+        $friendId = $request->friend_id;
+        
+        $friendship = Friendship::where(function($query) use ($user, $friendId) {
+            $query->where('user_id', $user->id)->where('friend_id', $friendId)
+                  ->orWhere('user_id', $friendId)->where('friend_id', $user->id);
+        })->where('status', 'blocked')
+          ->where('blocked_by', $user->id)
+          ->first();
+        
+        if (!$friendship) {
+            return response()->json(['message' => 'Không tìm thấy người dùng bị chặn'], 404);
+        }
+        
+        $friendship->delete();
+        
+        return response()->json(['message' => 'Đã bỏ chặn người dùng']);
     }
 
     // Tìm kiếm người dùng
